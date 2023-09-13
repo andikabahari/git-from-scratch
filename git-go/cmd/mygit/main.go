@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/zlib"
+	"crypto/sha1"
 	"fmt"
 	"io"
 	"os"
@@ -51,7 +52,44 @@ func main() {
 		}
 
 		startAt := bytes.IndexByte(b, 0) + 1
-		fmt.Printf("%s", string(b[startAt:]))
+		fmt.Print(string(b[startAt:]))
+
+	case "hash-object":
+		filepath := os.Args[3]
+		content, err := os.ReadFile(filepath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
+		}
+
+		header := fmt.Sprintf("blob %d", len(content))
+		store := []byte(header)
+		store = append(store, byte('\x00'))
+		store = append(store, content...)
+
+		h := sha1.New()
+		h.Write(store)
+		checksum := fmt.Sprintf("%x", h.Sum(nil))
+
+		dirpath := path.Join(".git/objects", checksum[:2])
+		err = os.Mkdir(dirpath, 0755)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error making directory: %s\n", err)
+		}
+
+		objpath := path.Join(dirpath, checksum[2:])
+		f, err := os.Create(objpath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating file: %s\n", err)
+		}
+		defer f.Close()
+
+		var b bytes.Buffer
+		w := zlib.NewWriter(&b)
+		w.Write(store)
+		w.Close()
+		f.Write(b.Bytes())
+
+		fmt.Print(checksum)
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
