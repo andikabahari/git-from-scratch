@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 )
 
 // Usage: your_git.sh <command> <arg1> <arg2> ...
@@ -56,40 +57,11 @@ func main() {
 
 	case "hash-object":
 		filepath := os.Args[3]
-		content, err := os.ReadFile(filepath)
+		checksum, err := writeBlob(filepath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
+			fmt.Fprintf(os.Stderr, "Error writing blob: %s\n", err)
 		}
-
-		header := fmt.Sprintf("blob %d", len(content))
-		store := []byte(header)
-		store = append(store, '\x00')
-		store = append(store, content...)
-
-		h := sha1.New()
-		h.Write(store)
-		checksum := fmt.Sprintf("%x", h.Sum(nil))
-
-		dirpath := path.Join(".git/objects", checksum[:2])
-		err = os.Mkdir(dirpath, 0755)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error making directory: %s\n", err)
-		}
-
-		objpath := path.Join(dirpath, checksum[2:])
-		f, err := os.Create(objpath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error creating file: %s\n", err)
-		}
-		defer f.Close()
-
-		var b bytes.Buffer
-		w := zlib.NewWriter(&b)
-		w.Write(store)
-		w.Close()
-		f.Write(b.Bytes())
-
-		fmt.Print(checksum)
+		fmt.Printf("%x\n", checksum)
 
 	case "ls-tree":
 		sha := os.Args[3]
@@ -114,7 +86,6 @@ func main() {
 		// skip header
 		b = b[bytes.IndexByte(b, '\x00')+1:]
 
-		var names []string
 		for len(b) > 0 {
 			mode := b[:bytes.IndexByte(b, ' ')]
 			b = b[len(mode)+1:]
@@ -125,15 +96,97 @@ func main() {
 			sha := b[:20]
 			b = b[len(sha):]
 
-			names = append(names, string(name))
+			fmt.Println(string(name))
 		}
 
-		for _, name := range names {
-			fmt.Println(name)
+	case "write-tree":
+		wd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting current directory: %s\n", err)
 		}
+
+		checksum, err := writeTree(wd)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing tree object: %s\n", err)
+		}
+		fmt.Printf("%x\n", checksum)
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
 		os.Exit(1)
 	}
+}
+
+func writeObject(objectType string, content []byte) ([20]byte, error) {
+	header := fmt.Sprintf("%s %d", objectType, len(content))
+	store := []byte(header)
+	store = append(store, '\x00')
+	store = append(store, content...)
+
+	checksum := sha1.Sum(store)
+	sumstr := fmt.Sprintf("%x", checksum)
+
+	dirpath := path.Join(".git/objects", sumstr[:2])
+	err := os.Mkdir(dirpath, 0755)
+	if err != nil {
+		return [20]byte{}, err
+	}
+
+	objpath := path.Join(dirpath, sumstr[2:])
+	f, err := os.Create(objpath)
+	if err != nil {
+		return [20]byte{}, err
+	}
+	defer f.Close()
+
+	var b bytes.Buffer
+	w := zlib.NewWriter(&b)
+	w.Write(store)
+	w.Close()
+	f.Write(b.Bytes())
+
+	return checksum, nil
+}
+
+func writeBlob(filepath string) ([20]byte, error) {
+	content, err := os.ReadFile(filepath)
+	if err != nil {
+		return [20]byte{}, err
+	}
+
+	return writeObject("blob", content)
+}
+
+func writeTree(rootpath string) ([20]byte, error) {
+	entries, err := os.ReadDir(rootpath)
+	if err != nil {
+		return [20]byte{}, err
+	}
+
+	var b bytes.Buffer
+	for _, entry := range entries {
+		if entry.Name() == ".git" {
+			continue
+		}
+
+		var mode int
+		var checksum [20]byte
+		var err error
+		objpath := filepath.Join(rootpath, entry.Name())
+		if entry.IsDir() {
+			mode = 0o040000
+			checksum, err = writeTree(objpath)
+		} else {
+			mode = 0o100644
+			checksum, err = writeBlob(objpath)
+		}
+		if err != nil {
+			return [20]byte{}, err
+		}
+
+		s := fmt.Sprintf("%o %s\x00%s", mode, entry.Name(), checksum)
+		b.WriteString(s)
+	}
+
+	return writeObject("tree", b.Bytes())
 }
