@@ -51,7 +51,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
 		}
 
-		startAt := bytes.IndexByte(b, 0) + 1
+		startAt := bytes.IndexByte(b, '\x00') + 1
 		fmt.Print(string(b[startAt:]))
 
 	case "hash-object":
@@ -63,7 +63,7 @@ func main() {
 
 		header := fmt.Sprintf("blob %d", len(content))
 		store := []byte(header)
-		store = append(store, byte('\x00'))
+		store = append(store, '\x00')
 		store = append(store, content...)
 
 		h := sha1.New()
@@ -90,6 +90,47 @@ func main() {
 		f.Write(b.Bytes())
 
 		fmt.Print(checksum)
+
+	case "ls-tree":
+		sha := os.Args[3]
+		treepath := path.Join(".git/objects", sha[:2], sha[2:])
+		f, err := os.Open(treepath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening file: %s\n", err)
+		}
+		defer f.Close()
+
+		r, err := zlib.NewReader(f)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating zlib reader: %s\n", err)
+		}
+		defer r.Close()
+
+		b, err := io.ReadAll(r)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
+		}
+
+		// skip header
+		b = b[bytes.IndexByte(b, '\x00')+1:]
+
+		var names []string
+		for len(b) > 0 {
+			mode := b[:bytes.IndexByte(b, ' ')]
+			b = b[len(mode)+1:]
+
+			name := b[:bytes.IndexByte(b, '\x00')]
+			b = b[len(name)+1:]
+
+			sha := b[:20]
+			b = b[len(sha):]
+
+			names = append(names, string(name))
+		}
+
+		for _, name := range names {
+			fmt.Println(name)
+		}
 
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
