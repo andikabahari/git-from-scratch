@@ -3,34 +3,34 @@ package main
 import (
 	"bytes"
 	"compress/zlib"
-	"fmt"
 	"io"
 	"os"
 	"path"
 )
 
-func lsTree(sha string) error {
+func lsTree(sha string) ([][]byte, error) {
 	treepath := path.Join(".git/objects", sha[:2], sha[2:])
 	f, err := os.Open(treepath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer f.Close()
 
 	r, err := zlib.NewReader(f)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer r.Close()
 
 	b, err := io.ReadAll(r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// skip header
 	b = b[bytes.IndexByte(b, '\x00')+1:]
 
+	names := make([][]byte, 0)
 	for len(b) > 0 {
 		mode := b[:bytes.IndexByte(b, ' ')]
 		b = b[len(mode)+1:]
@@ -41,8 +41,8 @@ func lsTree(sha string) error {
 		sha := b[:20]
 		b = b[len(sha):]
 
-		fmt.Println(string(name))
+		names = append(names, name)
 	}
 
-	return nil
+	return names, nil
 }

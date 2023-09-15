@@ -23,11 +23,12 @@ func main() {
 
 	case "cat-file":
 		sha := os.Args[3]
-		err := catFile(sha)
+		b, err := catFile(sha)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error printing file content: %s\n", err)
 			os.Exit(1)
 		}
+		fmt.Print(string(b))
 
 	case "hash-object":
 		filepath := os.Args[3]
@@ -40,10 +41,13 @@ func main() {
 
 	case "ls-tree":
 		sha := os.Args[3]
-		err := lsTree(sha)
+		names, err := lsTree(sha)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error listing tree: %s\n", err)
 			os.Exit(1)
+		}
+		for _, b := range names {
+			fmt.Println(string(b))
 		}
 
 	case "write-tree":
