@@ -59,7 +59,7 @@ func main() {
 		filepath := os.Args[3]
 		checksum, err := writeBlob(filepath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error writing blob: %s\n", err)
+			fmt.Fprintf(os.Stderr, "Error writing blob object: %s\n", err)
 		}
 		fmt.Printf("%x\n", checksum)
 
@@ -108,6 +108,16 @@ func main() {
 		checksum, err := writeTree(wd)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing tree object: %s\n", err)
+		}
+		fmt.Printf("%x\n", checksum)
+
+	case "commit-tree":
+		treeSha := os.Args[2]
+		commitSha := os.Args[4]
+		msg := os.Args[6]
+		checksum, err := writeCommit(treeSha, commitSha, msg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing commit object: %s\n", err)
 		}
 		fmt.Printf("%x\n", checksum)
 
@@ -189,4 +199,13 @@ func writeTree(rootpath string) ([20]byte, error) {
 	}
 
 	return writeObject("tree", b.Bytes())
+}
+
+func writeCommit(treeSha, commitSha, msg string) ([20]byte, error) {
+	content := fmt.Sprintf("tree %s\n", treeSha)
+	content += fmt.Sprintf("parent %s\n", commitSha)
+	content += fmt.Sprintf("author %s\n", "user@example.com")
+	content += fmt.Sprintf("committer %s\n\n", "user@example.com")
+	content += fmt.Sprintf("%s\n", msg)
+	return writeObject("commit", []byte(content))
 }
