@@ -75,6 +75,15 @@ func main() {
 		}
 		fmt.Printf("%x\n", checksum)
 
+	case "clone":
+		url := os.Args[2]
+		dir := os.Args[3]
+		err := clone(url, dir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error cloning repository %s\n", err)
+			os.Exit(1)
+		}
+
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command %s\n", command)
 		os.Exit(1)
