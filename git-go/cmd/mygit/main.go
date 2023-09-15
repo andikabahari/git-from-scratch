@@ -23,12 +23,14 @@ func main() {
 		for _, dir := range []string{".git", ".git/objects", ".git/refs"} {
 			if err := os.MkdirAll(dir, 0755); err != nil {
 				fmt.Fprintf(os.Stderr, "Error creating directory: %s\n", err)
+				os.Exit(1)
 			}
 		}
 
 		headFileContents := []byte("ref: refs/heads/master\n")
 		if err := os.WriteFile(".git/HEAD", headFileContents, 0644); err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing file: %s\n", err)
+			os.Exit(1)
 		}
 
 		fmt.Println("Initialized git directory")
@@ -38,18 +40,21 @@ func main() {
 		f, err := os.Open(path.Join(".git/objects", sha[:2], sha[2:]))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error opening file: %s\n", err)
+			os.Exit(1)
 		}
 		defer f.Close()
 
 		r, err := zlib.NewReader(f)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating zlib reader: %s\n", err)
+			os.Exit(1)
 		}
 		defer r.Close()
 
 		b, err := io.ReadAll(r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
+			os.Exit(1)
 		}
 
 		startAt := bytes.IndexByte(b, '\x00') + 1
@@ -60,6 +65,7 @@ func main() {
 		checksum, err := writeBlob(filepath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing blob object: %s\n", err)
+			os.Exit(1)
 		}
 		fmt.Printf("%x\n", checksum)
 
@@ -69,18 +75,21 @@ func main() {
 		f, err := os.Open(treepath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error opening file: %s\n", err)
+			os.Exit(1)
 		}
 		defer f.Close()
 
 		r, err := zlib.NewReader(f)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating zlib reader: %s\n", err)
+			os.Exit(1)
 		}
 		defer r.Close()
 
 		b, err := io.ReadAll(r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
+			os.Exit(1)
 		}
 
 		// skip header
@@ -103,11 +112,13 @@ func main() {
 		wd, err := os.Getwd()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error getting current directory: %s\n", err)
+			os.Exit(1)
 		}
 
 		checksum, err := writeTree(wd)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing tree object: %s\n", err)
+			os.Exit(1)
 		}
 		fmt.Printf("%x\n", checksum)
 
@@ -118,6 +129,7 @@ func main() {
 		checksum, err := writeCommit(treeSha, commitSha, msg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error writing commit object: %s\n", err)
+			os.Exit(1)
 		}
 		fmt.Printf("%x\n", checksum)
 
