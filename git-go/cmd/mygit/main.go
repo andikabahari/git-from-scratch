@@ -25,7 +25,7 @@ func main() {
 		sha := os.Args[3]
 		b, err := catFile(sha)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error printing file content: %s\n", err)
+			fmt.Fprintf(os.Stderr, "Error reading file content: %s\n", err)
 			os.Exit(1)
 		}
 		fmt.Print(string(b))
