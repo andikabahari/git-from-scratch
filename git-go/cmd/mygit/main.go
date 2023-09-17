@@ -80,7 +80,7 @@ func main() {
 		dir := os.Args[3]
 		err := clone(url, dir)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error cloning repository %s\n", err)
+			fmt.Fprintf(os.Stderr, "Error cloning repository: %s\n", err)
 			os.Exit(1)
 		}
 

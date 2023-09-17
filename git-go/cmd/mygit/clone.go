@@ -39,7 +39,7 @@ func clone(url, dir string) error {
 		return err
 	}
 
-	return unpack(dir, &p)
+	return unpack(dir, p)
 }
 
 type ref struct {
